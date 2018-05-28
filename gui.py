@@ -5,7 +5,7 @@ import dash_table_experiments as dte
 from dash.dependencies import Input, Output, State, Event
 from plotly.graph_objs import *
 import os
-import datetime as dt
+import datetime as date
 from AeroSpike_production import AerospikeClient
 import time
 import ipaddress
@@ -44,22 +44,22 @@ app.layout = html.Div([
             # Live graph
             html.Div(id='live-graph-container', children=[
                 dcc.Graph(id='live-graph'),
-                dcc.Interval(id='live-graph-update', interval=500, n_intervals=0),
+                dcc.Interval(id='live-graph-update'),
                 html.Br(),
                 html.Div(id='live-table-container', className='element-table'),
-                dcc.Interval(id='table-update', interval=2000, n_intervals=0),
+                dcc.Interval(id='table-update'),
 
             ]),
             # Hystory graph
             html.Div(id='history-graph-container', children=[
                 html.Br(),
-                html.Label('Select hour to display'),
+                html.Label('Select date to display'),
                 dcc.DatePickerSingle(
                     id="date-input",
                     display_format="YYYY-M-D",
                     month_format='MMMM Y',
                     placeholder='MMMM Y',
-                    date=dt(2018, 5, 24)
+                    date=date.date.today()
                 ),
                 html.Label('Select hour to display'),
                 dcc.Dropdown(id='hour-dropdown', options=
@@ -86,8 +86,7 @@ app.layout = html.Div([
                  {'label': '20 h.', 'value': 20},
                  {'label': '21 h.', 'value': 21},
                  {'label': '22 h.', 'value': 22},
-                 {'label': '23 h.', 'value': 23}],
-                             value='0'),
+                 {'label': '23 h.', 'value': 23}], value='0'),
                 dcc.Dropdown(id='minute-dropdown', options=
                 [{'label': '00-05 min.', 'value': 0},
                  {'label': '05-10 min.', 'value': 5},
@@ -104,7 +103,7 @@ app.layout = html.Div([
                 html.Div(id='history-table-container', className='element-table'),
             ]),
         ], className='hrpi-graph'),
-        # Fixas datatable xdd loll
+        # Datatable graphical bug Fix
         html.Div(dte.DataTable(rows=[{}]), style={'display': 'none'}),
     ], className='element-table'),
 
@@ -173,7 +172,23 @@ def toggle_container(toggle_value):
         return {'display': 'none'}
     else:
         return {'display': 'block'}
+# Hides live graph update
+@app.callback(Output('live-graph-update', 'interval'),
+              [Input('update-dropdown', 'value')])
+def toggle_container(toggle_value):
+    if toggle_value == True:
+        return 500
+    else:
+        return 2147483647
 
+# Stops live container update
+@app.callback(Output('table-update', 'interval'),
+              [Input('update-dropdown', 'value')])
+def toggle_container(toggle_value):
+    if toggle_value == True:
+        return 1000
+    else:
+        return 2147483647
 
 # Updates graph-live figure
 @app.callback(Output('live-graph', 'figure'),
@@ -194,7 +209,7 @@ def display_page(intervals, graphStatus):
             else:
                 hrpi_array.append(0)
                 eval_array.append(0)
-            ltime+=1
+            ltime += 1
         trace = Scatter(
             x=time_array,
             y=hrpi_array,
@@ -230,7 +245,7 @@ def display_page(intervals, graphStatus):
             ),
             line=dict(
                 width='1',
-                # color='rgb(255,255,255)',
+                color='rgb(66, 196, 247)',
             )
         )
         layout = dict(
@@ -260,19 +275,12 @@ def display_page(intervals, graphStatus):
               [Input('update-dropdown', 'value'),
                Input('hour-dropdown', 'value'),
                Input('minute-dropdown', 'value'),
-               Input('date-input', 'date'),
-               Input('history-graph', 'relayoutData')])
-def display_history(graphStatus, valueHours, valueMinutes, valueDate, date):
+               Input('date-input', 'date'),])
+def display_history(graphStatus, valueHours, valueMinutes, valueDate):
     if (graphStatus == False):
-        #ltime = int(time.time() * 10)
-        if(date == {'autosize': True}):
-            update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
-            timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
-            timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
-        else:
-            timeReadFrom = int(time.mktime(dt.strptime(date['xaxis.range[0]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
-            timeReadTo = int(time.mktime(dt.strptime(date['xaxis.range[1]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
-        #print(timeReadFrom, timeReadTo, timeReadTo - timeReadFrom)
+        update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
+        timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
+        timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
         dataSpike = aero.getData(timeFrom=timeReadFrom, timeTo=timeReadTo+1)
         hrpi_array = []
         eval_array = []
@@ -286,7 +294,6 @@ def display_history(graphStatus, valueHours, valueMinutes, valueDate, date):
                 hrpi_array.append(0)
                 eval_array.append(0)
             timeReadFrom += 1
-
         trace = Scatter(
             x=time_array,
             y=hrpi_array,
@@ -321,7 +328,7 @@ def display_history(graphStatus, valueHours, valueMinutes, valueDate, date):
             ),
             line=dict(
                 width='1',
-                # color='rgb(255,255,255)',
+                color='rgb(66, 196, 247)',
             )
         )
         layout = dict(
@@ -331,24 +338,7 @@ def display_history(graphStatus, valueHours, valueMinutes, valueDate, date):
                 constrain='range',
                 constraintoward='right',
                 range=[time_array[0], time_array[-1]],
-                autorange=True,
-                # range=xrange,
-                rangeselector=dict(
-                    buttons=list([
-                        dict(count=30,
-                             label='30s',
-                             step='second',
-                             stepmode='todate'),
-                        dict(count=60,
-                             label='60s',
-                             step='second',
-                             stepmode='todate'),
-                        dict(count=int(len(time_array) / 10),
-                             label='all',
-                             step='second',
-                             stepmode='todate')
-                    ])
-                ),
+
                 rangeslider=dict(
                     autorange=False,
                     range=[time_array[0], time_array[-1]],
@@ -374,17 +364,29 @@ def display_history(graphStatus, valueHours, valueMinutes, valueDate, date):
                Input('hour-dropdown', 'value'),
                Input('minute-dropdown', 'value'),
                Input('date-input', 'date'),
-               Input('history-graph', 'relayoutData')])
-def compute_value(graphStatus, valueHours, valueMinutes, valueDate, date):
+               Input('history-graph', 'relayoutData'),])
+def compute_value(graphStatus, valueHours, valueMinutes, valueDate, relayout):
     if (graphStatus == False):
-        if (date == {'autosize': True}):
+        # Selecting range input
+        if 'autosize' in relayout:
             update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
             timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
             timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
         else:
-            timeReadFrom = int(
-                time.mktime(dt.strptime(date['xaxis.range[0]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
-            timeReadTo = int(time.mktime(dt.strptime(date['xaxis.range[1]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
+            # Selecting graph
+            if 'xaxis.range' in relayout:
+                timeReadFrom = int(
+                    time.mktime(dt.strptime(relayout['xaxis.range'][0], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
+                timeReadTo = int(
+                    time.mktime(dt.strptime(relayout['xaxis.range'][1], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
+
+            # Selecting slider
+            else:
+
+                timeReadFrom = int(
+                    time.mktime(dt.strptime(relayout['xaxis.range[0]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
+                timeReadTo = int(
+                    time.mktime(dt.strptime(relayout['xaxis.range[1]'], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
         ip_requests = {}
         request_sum = 0
         records = aero.getDataIP(timeFrom=timeReadFrom, timeTo=timeReadTo)
@@ -402,6 +404,7 @@ def compute_value(graphStatus, valueHours, valueMinutes, valueDate, date):
         for IP, count in ip_requests.items():
             ip_table.append({'IP address': IP, 'Request amount': count})
         ip_table.sort(key=lambda x: -x['Request amount'])
+
         return [
             html.Div([
                 html.H3("IP statistics table"),
