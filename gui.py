@@ -1,4 +1,5 @@
 import dash
+import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table_experiments as dte
@@ -21,139 +22,93 @@ aero = AerospikeClient()
 aero.connect()
 
 app = dash.Dash('firewall-app')
+app.config.supress_callback_exceptions = True
+server = app.server
+auth = dash_auth.BasicAuth(app, Accounts)
 #------------------------------------------APP LAYOUT-------------------------------------------------------------------
 app.layout = html.Div([
     html.Div([
-        html.H2("Elitnet1 L7 Firewall"),
-        html.Img(src="https://ktu.edu/wp-content/uploads/2016/04/ktu-logo-lt-pilnas.png"),
-        html.Img(src="https://studentams.ktu.edu/wp-content/uploads/sites/54/2017/06/Elitnet-300x77.png")
+        html.H2("Elitnet1 HRPI Analyzer"),
+        html.Img(src="/static/ktu.png"),
+        html.Img(src="/static/elitnet.png"),
+        html.Br(),
+        dcc.Tabs(tabs=[ {'label': 'Live graph', 'value': True},
+                        {'label': 'History graph', 'value': False}],
+                        id='update-dropdown',
+                        value=True,
+                 style={'borderColor': "rgb(120,120,120)",
+                        #'backgroundColor' : "rgb(165, 42, 42)",
+                        "color": "rgb(20,20,20)",
+                        "fontSize": "20px"}),
+        html.Br(),
     ], className='banner'),
-    html.Div([
-        html.Div([
-            html.H3("HRPI")
-        ], className='Title'),
-        html.Div([
-            dcc.Dropdown(
-                id='update-dropdown',
-                options=[
-                    {'label': 'Live', 'value': True},
-                    {'label': 'Hystory', 'value': False},
-                ],
-                value=True
-            ),
-            # Live graph
-            html.Div(id='live-graph-container', children=[
-                dcc.Graph(id='live-graph'),
-                dcc.Interval(id='live-graph-update'),
-                html.Br(),
-                html.Div(id='live-table-container', className='element-table'),
-                dcc.Interval(id='table-update'),
-
-            ]),
-            # Hystory graph
-            html.Div(id='history-graph-container', children=[
-                html.Br(),
-                html.Label('Select date to display'),
+    # Live graph
+    html.Div(id='live-graph-container', children=[
+        html.Br(),
+        dcc.Graph(id='live-graph', className='graph'),
+        dcc.Interval(id='live-graph-update', interval=100),
+        html.Div(id='live-table-container', className='table'),
+        dcc.Interval(id='table-update', interval=100),
+    ], className='graphDiv'),
+    # Hystory graph
+    html.Div(id='history-graph-container', children=[
+        html.Br(),
+        html.Div(id='history-inputs-container', children=[
+            html.Label('Select date, time and hour to display'),
+            html.Div(id='inputs', children=[
                 dcc.DatePickerSingle(
                     id="date-input",
                     display_format="YYYY-M-D",
                     month_format='MMMM Y',
                     placeholder='MMMM Y',
-                    date=date.date.today()
-                ),
-                html.Label('Select hour to display'),
-                dcc.Dropdown(id='hour-dropdown', options=
-                [{'label': '00 h.', 'value': 0},
-                 {'label': '01 h.', 'value': 1},
-                 {'label': '02 h.', 'value': 2},
-                 {'label': '03 h.', 'value': 3},
-                 {'label': '04 h.', 'value': 4},
-                 {'label': '05 h.', 'value': 5},
-                 {'label': '06 h.', 'value': 6},
-                 {'label': '07 h.', 'value': 7},
-                 {'label': '08 h.', 'value': 8},
-                 {'label': '09 h.', 'value': 9},
-                 {'label': '10 h.', 'value': 10},
-                 {'label': '11 h.', 'value': 11},
-                 {'label': '12 h.', 'value': 12},
-                 {'label': '13 h.', 'value': 13},
-                 {'label': '14 h.', 'value': 14},
-                 {'label': '15 h.', 'value': 15},
-                 {'label': '16 h.', 'value': 16},
-                 {'label': '17 h.', 'value': 17},
-                 {'label': '18 h.', 'value': 18},
-                 {'label': '19 h.', 'value': 19},
-                 {'label': '20 h.', 'value': 20},
-                 {'label': '21 h.', 'value': 21},
-                 {'label': '22 h.', 'value': 22},
-                 {'label': '23 h.', 'value': 23}], value='0'),
-                dcc.Dropdown(id='minute-dropdown', options=
-                [{'label': '00-05 min.', 'value': 0},
-                 {'label': '05-10 min.', 'value': 5},
-                 {'label': '10-15 min.', 'value': 10},
-                 {'label': '15-20 min.', 'value': 15},
-                 {'label': '20-25 min.', 'value': 20},
-                 {'label': '25-30 min.', 'value': 25},
-                 {'label': '30-35 min.', 'value': 30},
-                 {'label': '45-50 min.', 'value': 45},
-                 {'label': '50-55 min.', 'value': 50},
-                 {'label': '55-60 min.', 'value': 55}], value='0'),
-                dcc.Graph(id='history-graph'),
-                html.Br(),
-                html.Div(id='history-table-container', className='element-table'),
-            ]),
-        ], className='hrpi-graph'),
-        # Datatable graphical bug Fix
-        html.Div(dte.DataTable(rows=[{}]), style={'display': 'none'}),
-    ], className='element-table'),
-
-],)
+                    date=date.date.today()),
+            ], className='dateinput'),
+            dcc.Dropdown(id='hour-dropdown', className='dropdown', value=dt.now().hour, options=
+            [{'label': '00 h.', 'value': 0},
+             {'label': '01 h.', 'value': 1},
+             {'label': '02 h.', 'value': 2},
+             {'label': '03 h.', 'value': 3},
+             {'label': '04 h.', 'value': 4},
+             {'label': '05 h.', 'value': 5},
+             {'label': '06 h.', 'value': 6},
+             {'label': '07 h.', 'value': 7},
+             {'label': '08 h.', 'value': 8},
+             {'label': '09 h.', 'value': 9},
+             {'label': '10 h.', 'value': 10},
+             {'label': '11 h.', 'value': 11},
+             {'label': '12 h.', 'value': 12},
+             {'label': '13 h.', 'value': 13},
+             {'label': '14 h.', 'value': 14},
+             {'label': '15 h.', 'value': 15},
+             {'label': '16 h.', 'value': 16},
+             {'label': '17 h.', 'value': 17},
+             {'label': '18 h.', 'value': 18},
+             {'label': '19 h.', 'value': 19},
+             {'label': '20 h.', 'value': 20},
+             {'label': '21 h.', 'value': 21},
+             {'label': '22 h.', 'value': 22},
+             {'label': '23 h.', 'value': 23}]),
+            dcc.Dropdown(id='minute-dropdown', className='dropdown', value=int(dt.now().minute/5)*5, options=
+            [{'label': '00-05 min.', 'value': 0},
+             {'label': '05-10 min.', 'value': 5},
+             {'label': '10-15 min.', 'value': 10},
+             {'label': '15-20 min.', 'value': 15},
+             {'label': '20-25 min.', 'value': 20},
+             {'label': '25-30 min.', 'value': 25},
+             {'label': '30-35 min.', 'value': 30},
+             {'label': '35-40 min.', 'value': 35},
+             {'label': '40-45 min.', 'value': 40},
+             {'label': '45-50 min.', 'value': 45},
+             {'label': '50-55 min.', 'value': 50},
+             {'label': '55-60 min.', 'value': 55}]),
+            ], className='inputs'),
+        dcc.Graph(id='history-graph', className='graph'),
+        html.Div(id='history-table-container', className='table'),
+    ], className='graphDiv'),
+    # Datatable graphical bug Fix
+    html.Div(dte.DataTable(rows=[{}]), style={'display': 'none'}),
+], className='window')
 #----------------------------------------------Callback Functions-------------------------------------------------------
-# Updates Live Table
-@app.callback(Output('live-table-container', 'children'),
-              [Input('update-dropdown', 'value'),
-              Input('table-update', 'n_intervals')])
-def compute_value(graphStatus, intervals):
-    if (graphStatus == True):
-        ltime = int(time.time() * 10)
-        records = aero.getDataIP(timeFrom=ltime - 301, timeTo=ltime)
-        ip_requests = {}
-        request_sum = 0
-        for record in records:
-            if (record[1] != None):
-                IPlist = record[2]
-                if IPlist is not None:
-                    for IP in IPlist.items():
-                        IP_address = (str(ipaddress.IPv4Address(int(IP[0]))))
-                        ip_requests[IP_address] = ip_requests.get(IP_address, 0) + IP[1]
-                        request_sum += IP[1]
-
-        ip_count = len(ip_requests)
-        ip_table = list()
-        for IP, count in ip_requests.items():
-            ip_table.append({'IP address': IP, 'Request amount': count})
-        ip_table.sort(key=lambda x: -x['Request amount'])
-        return [
-            html.Div([
-                        html.H3("IP statistics table"),
-                        html.H3("Incoming ip addresses amount: " + str(ip_count) + ". Total request amount: " + str(request_sum)),
-                    ], className='Title'),
-            dte.DataTable(
-                id='live-iptable',
-                rows=ip_table,
-                columns=['IP address', 'Request amount'],
-                max_rows_in_viewport=1000,
-                row_height=32,
-                resizable=False,
-                editable=False,
-                row_selectable=False,
-                filterable=False,
-                sortable=False,
-                enable_drag_and_drop=False,
-            ),
-        ]
-    else:
-        return []
 
 # Hides live graph
 @app.callback(Output('live-graph-container', 'style'),
@@ -186,7 +141,7 @@ def toggle_container(toggle_value):
               [Input('update-dropdown', 'value')])
 def toggle_container(toggle_value):
     if toggle_value == True:
-        return 1000
+        return 1500
     else:
         return 2147483647
 
@@ -195,9 +150,10 @@ def toggle_container(toggle_value):
               [Input('live-graph-update', 'n_intervals'),
                Input('update-dropdown', 'value')])
 def display_page(intervals, graphStatus):
+   #print("live-graph")
     if(graphStatus == True):
         ltime = int(time.time() * 10)
-        dataSpike = aero.getData(timeFrom=ltime - 301, timeTo=ltime)
+        dataSpike = aero.getData(timeFrom=ltime - 101, timeTo=ltime)
         hrpi_array = []
         eval_array = []
         time_array = []
@@ -239,19 +195,19 @@ def display_page(intervals, graphStatus):
                     title='Danger Level',
                     titleside='top',
                     tickvals=[0.4, 1, 1.6],
-                    ticktext=['Safe', 'Suspicious', 'Dangerous'],
+                    ticktext=['Safe', 'Alert', 'Danger'],
                     dtick=(1),
                 )
             ),
             line=dict(
                 width='1',
-                color='rgb(66, 196, 247)',
+                color='rgb(192,192,192)',
             )
         )
         layout = dict(
             title='Real-Time HRPI statistics graph',
             height=500,
-            autosize=False,
+            autosize=True,
             xaxis=dict(
                 constrain='range',
                 constraintoward='right',
@@ -270,6 +226,7 @@ def display_page(intervals, graphStatus):
         return Figure(data=[trace], layout=layout)
     else:
         return Figure()
+
 # Updates history-graph figure
 @app.callback(Output('history-graph', 'figure'),
               [Input('update-dropdown', 'value'),
@@ -277,87 +234,135 @@ def display_page(intervals, graphStatus):
                Input('minute-dropdown', 'value'),
                Input('date-input', 'date'),])
 def display_history(graphStatus, valueHours, valueMinutes, valueDate):
-    if (graphStatus == False):
-        update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
-        timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
-        timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
-        dataSpike = aero.getData(timeFrom=timeReadFrom, timeTo=timeReadTo+1)
-        hrpi_array = []
-        eval_array = []
-        time_array = []
-        for record in dataSpike:
-            time_array.append(timeReadFrom * 100)
-            if (record[1] != None):
-                hrpi_array.append(record[2].get('data'))
-                eval_array.append(record[2].get('eval'))
-            else:
-                hrpi_array.append(0)
-                eval_array.append(0)
-            timeReadFrom += 1
-        trace = Scatter(
-            x=time_array,
-            y=hrpi_array,
-            name="HRPI",
-            mode='markers+lines',
-            visible=True,
-            marker=dict(
-                size='7',
-                cmin=0,
-                cmax=2,
-                cauto=False,
-                color=eval_array,
-                showscale=True,
-                colorscale=[
-                    [0, 'rgb(0,255,0)'],
-                    [0.33, 'rgb(0,255,0)'],
+    #print("history-graph")
+    update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
+    timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
+    timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
+    dataSpike = aero.getData(timeFrom=timeReadFrom, timeTo=timeReadTo+1)
+    
+    hrpi_array = []
+    eval_array = []
+    time_array = []
+    for record in dataSpike:
+        time_array.append(timeReadFrom * 100)
+        if (record[1] != None):
+            hrpi_array.append(record[2].get('data'))
+            eval_array.append(record[2].get('eval'))
+        else:
+            hrpi_array.append(0)
+            eval_array.append(0)
+        timeReadFrom += 1
+    trace = Scatter(
+        x=time_array,
+        y=hrpi_array,
+        name="HRPI",
+        mode='markers+lines',
+        visible=True,
+        marker=dict(
+            size='7',
+            cmin=0,
+            cmax=2,
+            cauto=False,
+            color=eval_array,
+            showscale=True,
+            colorscale=[
+                [0, 'rgb(0,255,0)'],
+                [0.33, 'rgb(0,255,0)'],
 
-                    [0.33, 'rgb(255,255,0)'],
-                    [0.66, 'rgb(255,255,0)'],
+                [0.33, 'rgb(255,255,0)'],
+                [0.66, 'rgb(255,255,0)'],
 
-                    [0.66, 'rgb(255,0,0)'],
-                    [1, 'rgb(255,0,0)'],
-                ],
-                colorbar=dict(
-                    tickmode='array',
-                    title='Danger Level',
-                    titleside='top',
-                    tickvals=[0.4, 1, 1.6],
-                    ticktext=['Safe', 'Suspicious', 'Dangerous'],
-                    dtick=(1),
+                [0.66, 'rgb(255,0,0)'],
+                [1, 'rgb(255,0,0)'],
+            ],
+            colorbar=dict(
+                tickmode='array',
+                title='Danger Level',
+                titleside='top',
+                tickvals=[0.4, 1, 1.6],
+                ticktext=['Safe', 'Suspicious', 'Dangerous'],
+                dtick=(1),
+            )
+        ),
+        line=dict(
+            width='1',
+            color='rgb(192,192,192)',
+        )
+    )
+    layout = dict(
+        title='History time graph',
+        height=500,
+        autosize=True,
+        xaxis=dict(
+            constrain='range',
+            constraintoward='right',
+            range=[time_array[0], time_array[-1]],
+
+            rangeslider=dict(
+                autorange=False,
+                range=[time_array[0], time_array[-1]],
+                yaxis=dict(
+                    rangemode='match'
                 )
             ),
-            line=dict(
-                width='1',
-                color='rgb(66, 196, 247)',
-            )
+            type='date'
+        ),
+        yaxis=dict(
+            fixedrange=True,
+            range=list([0, 3]),
+            autorange=False,
+            nticks=6,
         )
-        layout = dict(
-            title='History time graph',
-            height=600,
-            xaxis=dict(
-                constrain='range',
-                constraintoward='right',
-                range=[time_array[0], time_array[-1]],
+    )
+    return Figure(data=[trace], layout=layout)
 
-                rangeslider=dict(
-                    autorange=False,
-                    range=[time_array[0], time_array[-1]],
-                    yaxis=dict(
-                        rangemode='match'
-                    )
-                ),
-                type='date'
+# Updates Live Table
+@app.callback(Output('live-table-container', 'children'),
+              [Input('update-dropdown', 'value'),
+              Input('table-update', 'n_intervals')])
+def compute_value(graphStatus, intervals):
+   #print("live-table")
+    if (graphStatus == True):
+        ltime = int(time.time() * 10)
+        records = aero.getDataIP(timeFrom=ltime - 101, timeTo=ltime)
+        ip_requests = {}
+        request_sum = 0
+        for record in records:
+            if (record[1] != None):
+                IPlist = record[2]
+                if IPlist is not None:
+                    for IP in IPlist.items():
+                        IP_address = (str(ipaddress.IPv4Address(int(IP[0]))))
+                        ip_requests[IP_address] = ip_requests.get(IP_address, 0) + IP[1]
+                        request_sum += IP[1]
+
+        ip_count = len(ip_requests)
+        ip_table = list()
+        for IP, count in ip_requests.items():
+            ip_table.append({'IP address': IP, 'Request amount': count})
+        ip_table.sort(key=lambda x: -x['Request amount'])
+        return [
+            html.Div([
+                        html.H2("IP statistics"),
+                        html.H3("Active IP's: " + str(ip_count) + " Total requests: " + str(request_sum)),
+                    ], className='tableHeader'),
+            dte.DataTable(
+                id='live-iptable',
+                rows=ip_table,
+                columns=['IP address', 'Request amount'],
+                max_rows_in_viewport=1000,
+                row_height=32,
+                resizable=False,
+                editable=False,
+                row_selectable=False,
+                filterable=False,
+                sortable=False,
+                enable_drag_and_drop=False,
             ),
-            yaxis=dict(
-                fixedrange=True,
-                range=list([0, 3]),
-                autorange=False,
-                nticks=6,
-            )
-        )
-        return Figure(data=[trace], layout=layout)
+        ]
     else:
-        return Figure()
+        return []
+
 # Updates History Table
 @app.callback(Output('history-table-container', 'children'),
               [Input('update-dropdown', 'value'),
@@ -368,7 +373,7 @@ def display_history(graphStatus, valueHours, valueMinutes, valueDate):
 def compute_value(graphStatus, valueHours, valueMinutes, valueDate, relayout):
     if (graphStatus == False):
         # Selecting range input
-        if 'autosize' in relayout:
+        if relayout is None or 'autosize' in relayout:
             update_time = int(time.mktime(dt.strptime(valueDate, "%Y-%m-%d").timetuple()))
             timeReadFrom = (update_time + int(valueHours) * 3600 + int(valueMinutes) * 60) * 10
             timeReadTo = (update_time + int(valueHours) * 3600 + (int(valueMinutes) + 5) * 60) * 10
@@ -379,7 +384,6 @@ def compute_value(graphStatus, valueHours, valueMinutes, valueDate, relayout):
                     time.mktime(dt.strptime(relayout['xaxis.range'][0], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
                 timeReadTo = int(
                     time.mktime(dt.strptime(relayout['xaxis.range'][1], "%Y-%m-%d %H:%M:%S.%f").timetuple()) * 10)
-
             # Selecting slider
             else:
 
@@ -407,10 +411,9 @@ def compute_value(graphStatus, valueHours, valueMinutes, valueDate, relayout):
 
         return [
             html.Div([
-                html.H3("IP statistics table"),
-                html.H3(
-                    "Incoming ip addresses amount: " + str(ip_count) + ". Total request amount: " + str(request_sum)),
-            ], className='Title'),
+                html.H2("IP statistics"),
+                html.H3("Active IP's: " + str(ip_count) + " Total requests: " + str(request_sum)),
+            ], className='tableHeader'),
             dte.DataTable(
                 id='histoy-iptable',
                 rows=ip_table,
@@ -435,6 +438,8 @@ def serve_static(resource):
     return flask.send_from_directory(STATIC_PATH, resource)
 
 external_css = ["https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css",
+                "https://fonts.googleapis.com/css?family=Raleway:400,400i,700,700i",
+                "https://fonts.googleapis.com/css?family=Product+Sans:400,400i,700,700i",
                 "/static/GUIstyle.css",
                 ]
 
@@ -444,4 +449,5 @@ for css in external_css:
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0')
+    #app.run_server(debug=False, host='0.0.0.0')
+    app.run_server(debug=False, host='0.0.0.0', processes=3, threaded=False)
